@@ -20,5 +20,10 @@ height = 20;
 resolution = 32;
 tolerance = 0.1;
 
+// end the advanced here, 
+
+// go on with more basic settings
+
+
 /* [Hidden] */  // This group is hidden from customizer
 internal_var = 5;
