@@ -17,28 +17,30 @@
  */
 
 // in mm
-diameter = 100; // [10:400]
+diameter = 220; // [10:400]
 star_radius = diameter/2;
 corners = 6;
 star_corners = corners;
 max_rand_angle = 360/star_corners;
-layerheight = 0.12;
+layerheight = 0.12; // [0.08,0.12,0.16,0.2];
 //change this number to get a different random pattern
-randomseed = 42; // [0:0.1:100]
+randomseed = 42.42; // [0:0.1:100]
 seed = randomseed;
-generate_hole = true;  // [true, false]
+number_of_random_lines = 3; // [0:20]
+number_of_random_diamonds = 3; // [0:20]
 
 // base triangle points
 // Control the third point position
 
 /* [Advanced] */
-center_translation = -20;
+generate_hole = false;  // [true, false]
+center_translation = -15; // [-100:0]
 
 angle1_max = 360/star_corners;  // Maximum angle for this star corner
-anglefactor = 0.5;
+anglefactor = 0.4;// [0:0.1:1]
 p2_angle_factor = anglefactor;
 p2_angle = angle1_max / 2 * p2_angle_factor;       // Angle for the third point (half of max angle)
-radiusfactor = 0.5;
+radiusfactor = 0.6;// [0:0.1:1]
 p2_radius_factor = radiusfactor;
 p2_radius = star_radius * p2_radius_factor;   // Distance from origin (adjustable)
 
@@ -48,15 +50,13 @@ p2y = p2_radius * cos(p2_angle);  // y position (cos for angle from y-axis)
 points = [[0,0], [0,star_radius], [p2x, p2y]];
 faces = [[0,1,2]];
 min_thick_lines = 0.5;
-max_thick_lines = 3;
-number_of_random_lines = 0;//3;
-number_of_random_diamonds = 5;
+max_thick_lines = 2;
 
 // Generate random rhombi parameters
-min_rhombus_width = 3;
-max_rhombus_width = 10;
-min_rhombus_length = 3;
-max_rhombus_length = 10;
+min_rhombus_width = 1;
+max_rhombus_width = star_radius/4;
+min_rhombus_length = 2;
+max_rhombus_length = star_radius/2;
 
 
 // small layerheight part1
@@ -72,7 +72,7 @@ module part2() {
 }
 
 // Generate random line parameters
-lines = [ for(i=[0:number_of_random_lines-1]) 
+lines = [ for(i=[0:number_of_random_lines - 1]) 
             let(
                 w = rands(min_thick_lines, max_thick_lines, 1)[0], //rands(1,6,1,seed+i)[0],   // random width
                 h = star_radius*2, // rands(2,6,1,seed+i+10)[0],// random height
@@ -89,23 +89,15 @@ rhombi = [ for(i=[0:number_of_random_diamonds-1])
             let(
                 width = rands(min_rhombus_width, max_rhombus_width, 1, seed+i+100)[0],
                 length = rands(min_rhombus_length, max_rhombus_length, 1, seed+i+110)[0],
-                angle = rands(0, 360, 1, seed+i+120)[0],
-                x_pos = rands(0, p2x, 1)[0],
-                y_pos = rands(0, star_radius, 1)[0],
+                angle = rands(0, -360/corners/2/2, 1, seed+i+44)[0],
+                x_pos = rands(0, 0, 1)[0],
+                y_pos = rands(0, star_radius, 1, seed+i+22)[0],
                 layerheight = rands(layerheight, layerheight*10, 1, seed+i+140)[0]
             )
             [width, length, angle, x_pos, y_pos, layerheight]  // store parameters as data
         ];
 
-// Lines as objects
-module lines() {
-    for(r = lines)
-        // Generate geometry from stored parameters
-        translate([r[3], r[4], 0])       // x_pos, y_pos
-            rotate([0,0,r[2]])           // angle
-                translate([-r[0]/2,-r[1]/2,0])   // center using w, h
-                    cube([r[0],r[1],r[5]]);         // w, h, height
-}
+
 
 
 
@@ -125,60 +117,53 @@ module star_corner() {
     union() {
         part1();
         
-        // Each line intersection gets a different color
-        for(i = [0:len(lines)-1]) {
-            let(
-                r = lines[i],
-                // Generate colors based on index
-                hue = (i * 360 / len(lines)) % 360,
-                color_rgb = [hue/360, 0.7, 0.9]  // HSV-like color generation
-            )
-            color(color_rgb)
-                intersection() {
-                    part2();
-                    // Individual line
-                    translate([r[3], r[4], 0])
-                        rotate([0,0,r[2]])
-                            translate([-r[0]/2,-r[1]/2,0])
-                                cube([r[0],r[1],r[5]]);
-                }
+        if(number_of_random_lines > 0 ){
+
+            for(i = [0:number_of_random_lines - 1]) {
+                let(
+                    r = lines[i],
+                    // Generate colors based on index
+                    hue = (i * 360 / number_of_random_lines) % 360,
+                    color_rgb = [hue/360, 0.7, 0.9]  // HSV-like color generation
+                )
+                color(color_rgb)
+                    intersection() {
+                        part2();
+                        // Individual line
+                        translate([r[3], r[4], 0])
+                            rotate([0,0,r[2]])
+                                translate([-r[0]/2,-r[1]/2,0])
+                                    cube([r[0],r[1],r[5]]);
+                    }
+            }
         }
-        
-        // Each rhombus intersection gets a different color
-        for(i = [0:len(rhombi)-1]) {
-            let(
-                d = rhombi[i],
-                // Generate colors based on index (offset from lines)
-                hue = ((i + len(lines)) * 360 / (len(lines) + len(rhombi))) % 360,
-                color_rgb = [hue/360, 0.7, 0.9]
-            )
-            color(color_rgb)
-                // intersection() {
-                //    part2();
-                    // Individual rhombus
-                    rotate([0, 0, d[2]])
-                        translate([d[3], d[4], 0])
-                            linear_extrude(height = d[5]) {
-                                rhombus(d[0], d[1]);
-                            }
-                // }
+        if(number_of_random_diamonds > 0 ){
+            // Each rhombus intersection gets a different color
+            for(i = [0:number_of_random_diamonds-1]) {
+                let(
+                    d = rhombi[i],
+                    hue = (i * 360 / number_of_random_diamonds) % 360,
+                    color_rgb = [hue/360, 0.7, 0.9]  // HSV-like color generation
+                )
+                color(color_rgb)
+                    intersection() {
+                        part2();
+                        rotate([0, 0, d[2]])
+                            translate([d[3], d[4], 0])
+                                linear_extrude(height = d[5]) {
+                                    rhombus(d[0], d[1]);
+                                }
+                    }
+                
+            }
         }
-        
-        // Uncomment the line below to show full cubes (and comment out intersection above)
-        //for(i = [0:len(lines)-1]) {
-        //    let(r = lines[i], hue = (i * 360 / len(lines)) % 360)
-        //    color([hue/360, 0.7, 0.9])
-        //        translate([r[3], r[4], 0])
-        //            rotate([0,0,r[2]])
-        //                translate([-r[0]/2,-r[1]/2,0])
-        //                    cube([r[0],r[1],r[5]]);
-        //}
+
     }
 }
 
 // Cylinder hole parameters
-hole_outer_radius = 2;
-hole_inner_radius = 1;
+hole_outer_radius = 5;
+hole_inner_radius = 3;
 hole_length = 2;
 
 // Module for the cylinder with a hole (tube)
@@ -198,20 +183,20 @@ module cylinder_hole() {
 }
 
 // Complete star: circular pattern of mirrored corners
-// for(i = [0:star_corners-1]) {
-//     rotate([0, 0, i * 360/star_corners])
-//         translate([0, center_translation, 0])  // translate leaf outward from center
+for(i = [0:star_corners-1]) {
+    rotate([0, 0, i * 360/star_corners])
+        translate([0, center_translation, 0])  // translate leaf outward from center
             union() {
                 star_corner();
                 mirror([1, 0, 0])
                     star_corner();
             }
-// }
+}
 
 
-// // Add the cylinder hole at the top peak of the first leaf (if enabled)
-// if (generate_hole) {
-//     translate([0, star_radius + center_translation-hole_outer_radius*4, 0])  // Position at top of first leaf
-//         rotate([0, 90, 0])  // Rotate 90 degrees around Y axis to align with X axis
-//             cylinder_hole();
-// }
+// Add the cylinder hole at the top peak of the first leaf (if enabled)
+if (generate_hole) {
+    translate([0, star_radius + center_translation-hole_outer_radius*4, 0])  // Position at top of first leaf
+        rotate([0, 90, 0])  // Rotate 90 degrees around Y axis to align with X axis
+            cylinder_hole();
+}
