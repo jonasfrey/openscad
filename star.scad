@@ -16,25 +16,30 @@
  * [v1.0] Initial release
  */
 
-
-star_radius = 100; // [10:400]
-star_corners = 6;
+// in mm
+diameter = 100; // [10:400]
+star_radius = diameter/2;
+corners = 6;
+star_corners = corners;
 max_rand_angle = 360/star_corners;
 layerheight = 0.12;
 //change this number to get a different random pattern
-
-seed = 42;
-center_translation = -20;
+randomseed = 42; // [0:0.1:100]
+seed = randomseed;
 generate_hole = true;  // [true, false]
 
 // base triangle points
 // Control the third point position
 
 /* [Advanced] */
+center_translation = -20;
+
 angle1_max = 360/star_corners;  // Maximum angle for this star corner
-p2_angle_factor = 0.5;
+anglefactor = 0.5;
+p2_angle_factor = anglefactor;
 p2_angle = angle1_max / 2 * p2_angle_factor;       // Angle for the third point (half of max angle)
-p2_radius_factor = 0.5;
+radiusfactor = 0.5;
+p2_radius_factor = radiusfactor;
 p2_radius = star_radius * p2_radius_factor;   // Distance from origin (adjustable)
 
 p2x = p2_radius * sin(p2_angle);  // x position (sin for angle from y-axis)
@@ -44,8 +49,15 @@ points = [[0,0], [0,star_radius], [p2x, p2y]];
 faces = [[0,1,2]];
 min_thick_lines = 0.5;
 max_thick_lines = 3;
-number_of_random_lines = 3;
-number_of_random_diamonds = 2;
+number_of_random_lines = 0;//3;
+number_of_random_diamonds = 5;
+
+// Generate random rhombi parameters
+min_rhombus_width = 3;
+max_rhombus_width = 10;
+min_rhombus_length = 3;
+max_rhombus_length = 10;
+
 
 // small layerheight part1
 module part1() {
@@ -72,19 +84,14 @@ lines = [ for(i=[0:number_of_random_lines-1])
             [w, h, angle, x_pos, y_pos, layerheight]  // store parameters as data
         ];
 
-// Generate random rhombi parameters
-min_rhombus_width = 5;
-max_rhombus_width = 15;
-min_rhombus_length = 20;
-max_rhombus_length = 60;
 
 rhombi = [ for(i=[0:number_of_random_diamonds-1])
             let(
                 width = rands(min_rhombus_width, max_rhombus_width, 1, seed+i+100)[0],
                 length = rands(min_rhombus_length, max_rhombus_length, 1, seed+i+110)[0],
-                angle = rands(0, -max_rand_angle, 1, seed+i+120)[0],
-                x_pos = 0,
-                y_pos = rands(0, star_radius/2, 1, seed+i+130)[0],
+                angle = rands(0, 360, 1, seed+i+120)[0],
+                x_pos = rands(0, p2x, 1)[0],
+                y_pos = rands(0, star_radius, 1)[0],
                 layerheight = rands(layerheight, layerheight*10, 1, seed+i+140)[0]
             )
             [width, length, angle, x_pos, y_pos, layerheight]  // store parameters as data
@@ -100,40 +107,17 @@ module lines() {
                     cube([r[0],r[1],r[5]]);         // w, h, height
 }
 
-// Random rhombi as objects
-module random_rhombi() {
-    for(d = rhombi) {
-        // Create individual rhombus from parameters
-        translate([d[3], d[4], 0])  // x_pos, y_pos
-            rotate([0, 0, d[2]])    // angle
-                linear_extrude(height = d[5]) {  // layerheight
-                    polygon(points = [
-                        [0, 0],                    // Bottom
-                        [-d[0]/2, d[1]/2],         // Left (width/2, length/2)
-                        [0, d[1]],                 // Top
-                        [d[0]/2, d[1]/2]           // Right
-                    ]);
-                }
-    }
-}
 
-// Rhombus (diamond) parameters
-rhombus_length = star_radius + center_translation;  // Length from origin to star corner
-rhombus_width = 10;  // Width of the rhombus at its widest point
-rhombus_height = layerheight * 5;  // Height (z-axis extrusion)
 
 // Module to create a rhombus pointing from origin along Y axis
-module rhombus() {
-    // Define rhombus points: bottom, left, top, right
+module rhombus(w, l) {
     rhombus_points = [
-        [0, 0],                           // Bottom point (at origin)
-        [-rhombus_width/2, rhombus_length/2],  // Left point (middle)
-        [0, rhombus_length],              // Top point (at star corner)
-        [rhombus_width/2, rhombus_length/2]    // Right point (middle)
+        [0, 0],
+        [-w/2, l/2],
+        [0, l],
+        [w/2, l/2]
     ];
-    
-    linear_extrude(height = rhombus_height)
-        polygon(points = rhombus_points);
+    polygon(points = rhombus_points, paths = [[0,1,2,3]]);
 }
 
 // Single star corner module
@@ -169,20 +153,15 @@ module star_corner() {
                 color_rgb = [hue/360, 0.7, 0.9]
             )
             color(color_rgb)
-                intersection() {
-                    part2();
+                // intersection() {
+                //    part2();
                     // Individual rhombus
-                    translate([d[3], d[4], 0])
-                        rotate([0, 0, d[2]])
+                    rotate([0, 0, d[2]])
+                        translate([d[3], d[4], 0])
                             linear_extrude(height = d[5]) {
-                                polygon(points = [
-                                    [0, 0],
-                                    [-d[0]/2, d[1]/2],
-                                    [0, d[1]],
-                                    [d[0]/2, d[1]/2]
-                                ]);
+                                rhombus(d[0], d[1]);
                             }
-                }
+                // }
         }
         
         // Uncomment the line below to show full cubes (and comment out intersection above)
@@ -219,26 +198,20 @@ module cylinder_hole() {
 }
 
 // Complete star: circular pattern of mirrored corners
-for(i = [0:star_corners-1]) {
-    rotate([0, 0, i * 360/star_corners])
-        translate([0, center_translation, 0])  // translate leaf outward from center
+// for(i = [0:star_corners-1]) {
+//     rotate([0, 0, i * 360/star_corners])
+//         translate([0, center_translation, 0])  // translate leaf outward from center
             union() {
                 star_corner();
                 mirror([1, 0, 0])
                     star_corner();
             }
-}
+// }
 
-// Add rhombus pointing from origin to each star corner
-for(i = [0:star_corners-1]) {
-    rotate([0, 0, i * 360/star_corners])
-        color("gold")
-            rhombus();
-}
 
-// Add the cylinder hole at the top peak of the first leaf (if enabled)
-if (generate_hole) {
-    translate([0, star_radius + center_translation-hole_outer_radius*4, 0])  // Position at top of first leaf
-        rotate([0, 90, 0])  // Rotate 90 degrees around Y axis to align with X axis
-            cylinder_hole();
-}
+// // Add the cylinder hole at the top peak of the first leaf (if enabled)
+// if (generate_hole) {
+//     translate([0, star_radius + center_translation-hole_outer_radius*4, 0])  // Position at top of first leaf
+//         rotate([0, 90, 0])  // Rotate 90 degrees around Y axis to align with X axis
+//             cylinder_hole();
+// }
