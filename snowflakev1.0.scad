@@ -17,18 +17,18 @@
  */
 
 //change to get another random
-randomseed = 27.60; // [0:0.05:100]
+randomseed = 71.70; // [0:0.05:100]
 // number
-branch_lines = 5; // [0:20]
+branch_lines = 6; // [0:20]
 // in mm
-diameter = 160; // [10:400]
+diameter = 85; // [10:400]
 star_radius = diameter/2;
 // factor
-branch_rotation_randomness = 0.2; // [0:0.01:1]
-branch_location_randomness = 0.2; // [0:0.01:1]
+branch_rotation_randomness = 0.16; // [0:0.01:1]
+branch_location_randomness = 0.47; // [0:0.01:1]
 // in mm
-branch_thickness = 6; // [0.3:0.1:10]
-branch_thickness_randomness = 0.8; // [0:0.01:1]
+branch_thickness = 2.2; // [0.3:0.1:10]
+branch_thickness_randomness = 0.26; // [0:0.01:1]
 
 // i know snowflakes have 6 sides, but why not get diverse
 corners = 6; // [3:12]
@@ -178,15 +178,16 @@ module part_subtractor() {
 
     }
 }
-module random_branches(){
+module random_branches(seed_offset = 0) {
     // Generate random line parameters
+    s = seed_offset + seed;
     branchesinfo = [ for(i=[0:branch_lines - 1]) 
                 let(
-                    rotation_randomness_normalized = rands(-1, 1, 1, seed+i+14)[0],
-                    location_randomness_normalized =  rands(-1, 1, 1, seed+i+18)[0],
-                    thickness_randomness_normalized =  rands(-1, 1, 1, seed+i+53)[0],
-                    scl_y = rands(0, star_radius/4, 1, seed+i+23)[0],
-                    scl_z = rands(0, layerheight*40, 1, seed+i+12)[0], 
+                    rotation_randomness_normalized = rands(-1, 1, 1, s+i+14)[0],
+                    location_randomness_normalized =  rands(-1, 1, 1, s+i+18)[0],
+                    thickness_randomness_normalized =  rands(-1, 1, 1, s+i+53)[0],
+                    scl_y = rands(0, star_radius/4, 1, s+i+23)[0],
+                    scl_z = rands(0, layerheight*40, 1, s+i+12)[0], 
                 )
                 [rotation_randomness_normalized, location_randomness_normalized, thickness_randomness_normalized, scl_x, scl_y, scl_z]  // store parameters as data
             ];
@@ -208,7 +209,7 @@ module random_branches(){
             trn_y = trn_y_per_branch*i+(location_randomness_normalized*trn_y_per_branch*branch_location_randomness),
             rotation = -45 + rotation_randomness_normalized*90*branch_rotation_randomness,
             scl_x_calc = branch_thickness + (branch_thickness*thickness_randomness_normalized*branch_thickness_randomness),
-            scl_x_calc2 = max(scl_x_calc,0.4) 
+            scl_x_calc2 = max(scl_x_calc,1.0) 
         )
         translate([0, trn_y, 0])  // translate leaf outward from center
         rotate([0, 0, rotation])
@@ -216,27 +217,27 @@ module random_branches(){
     }
 
 }
-module flake_leaf_half_withoutsubtractor() {
+module flake_leaf_half_withoutsubtractor(seed_offset = 0) {
 
     union(){
         translate([0,0,0])
         branch_profile(center_line_width, center_line_length, extrusion_h1);
-        random_branches();
+        random_branches(seed_offset );
     }
     //part_subtractor();
 }
 
-module flake_leaf_half() {
-
+module flake_leaf_half(seed_offset = 0) {
+    s = seed + seed_offset;
     difference(){
-        flake_leaf_half_withoutsubtractor();
+        flake_leaf_half_withoutsubtractor(seed_offset);
         part_subtractor();
     }
 
     let(
         a = center_line_width*2,
         scl_x = a,
-        scl_y = rands(a, a*2, 1, seed)[0],
+        scl_y = rands(a, a*2, 1, s)[0],
     ){
         // add a rhomboid at the end of the leaf
         translate([0, star_radius-scl_y*0.5, 0])
@@ -248,32 +249,49 @@ module flake_leaf_half() {
 }
 
 
-module flake_leaf(){
+module flake_leaf(seed_offset = 0) {
     union() {
-        flake_leaf_half();
+        flake_leaf_half(seed_offset);
         mirror([1, 0, 0])
-            flake_leaf_half();
+            flake_leaf_half(seed_offset);
 
     }
 }
 
-module flake(){
-
+module flake(seed_offset = 0){
     // Complete star: circular pattern of mirrored corners
     for(i = [0:star_corners-1]) {
         rotate([0, 0, i * 360/star_corners])
             translate([0, -10, 0])  // translate leaf inward to center to create overlap
-            flake_leaf();
+            flake_leaf(seed_offset);
     }
 }
 
+module flakes(){
+    // in a grid make multiple flakes
+    spacing = diameter*1.01;
+    rows = 2;
+    cols = 2;
+    
+    translate([-spacing*(cols-1)/2, -spacing*(rows-1)/2, 0])
+    for(x = [0:cols-1]){
+        for(y = [0:rows-1]){
+            translate([x*spacing, y*spacing, 0])
+                let(
+                    seed_offset_unique = (x*rows + y)*10
+                )
+                flake(seed_offset_unique);
+        }
+    }
+}
 // call it
 // axis_helper(10, 0.01);
 
 //flake_leaf_half_withoutsubtractor();
 //flake_leaf_half();
 //flake_leaf();
-flake();
+// flake();
+flakes();
 //branch_profile(1,10,1);
 //branch_with_rhomoid_at_ends(4,33,5,0);
 //flake_leaf_half_withoutsubtractor();
