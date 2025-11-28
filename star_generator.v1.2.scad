@@ -3,7 +3,7 @@
  * Star Generator
  *      
  * Author: Jonas Frey  
- * Version: 1.1
+ * Version: 1.2
  *
  * Description:
  * This OpenSCAD script generates a star-shaped 3D model with randomized 
@@ -12,40 +12,50 @@
  * License:
  * This script licensed under a Standard Digital File License.
  *
+ * Opensource credits:
+ * - openscad 'language': https://openscad.org/ 
+ * - online openscad playground: https://ochafik.com/openscad2
+ * 
  * Changelog:
  * [v1.0] Initial release
  * [v1.1] 
  *      - improved layout and labeling of input variables
  *      - added some minor code improvements
+ * [v1.2]
+ *      - improved UI inputs
  */
 
 //change this number to get a different random pattern
-randomseed = 72.4; // [0:0.1:100]
+model_variation = 72.4; // [0:0.1:100]
+/* [Size] */
 // in mm
 diameter = 220; // [10:400]
 star_radius = diameter/2;
 corners = 6; // [3:12]
 star_corners = corners;
 max_rand_angle = 360/star_corners;
+// first layer
 layerheight = 0.12; // [0.08,0.12,0.16,0.2];
-seed = randomseed;
+seed = model_variation;
 
 random_lines = 4; // [0:20]
-random_rhombi = 9; // [0:20]
+random_rhombi = 5; // [0:20]
 
 
 // base triangle points
 // Control the third point position
 
 /* [Advanced] */
-// distance from center to a 'leaf' of the star
+// distance from center to a 'leaf' of the star, makes sense when using a uneven number of corners
 center_translation = -15; // [-100:0]
 
 
 angle1_max = 360/star_corners;  // Maximum angle for this star corner
+// normalized distance from origin to third point of triangle which makes up the half 'leaf' of the star
 anglefactor = 0.7;// [0:0.1:2]
 p2_angle_factor = anglefactor;
 p2_angle = angle1_max / 2 * p2_angle_factor;       // Angle for the third point (half of max angle)
+// normalized radial distance from star 'crest' to 'through' 
 radiusfactor = 0.5;// [0:0.1:2]
 p2_radius_factor = radiusfactor;
 p2_radius = star_radius * p2_radius_factor;   // Distance from origin (adjustable)
